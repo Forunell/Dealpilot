@@ -1,0 +1,13 @@
+node_modules/
+.backups/
+*.local.json
+dist/
+.tools/
+.env
+.env.*
+!.env.example
+test-results/
+playwright-report/
+*.tsbuildinfo
+*.log
+node-shasums.txt
