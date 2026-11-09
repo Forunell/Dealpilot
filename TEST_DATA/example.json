@@ -1,0 +1,13 @@
+{
+  "version": 1,
+  "contacts": [
+    { "id": "example-contact", "name": "Олена Приклад", "company": "Вигадана студія Крапка", "email": "hello@example.com", "phone": "", "notes": "Вигаданий приклад для перевірки імпорту.", "demo": true }
+  ],
+  "deals": [
+    { "id": "example-deal", "title": "Айдентика студії Крапка", "contactId": "example-contact", "amount": 24000, "currency": "UAH", "stage": "Пропозиція", "expectedDate": "2026-12-01", "probability": 50, "owner": "Дизайн", "notes": "Підготувати два напрями. Приклад, не реальне замовлення.", "demo": true }
+  ],
+  "tasks": [
+    { "id": "example-task", "title": "Підготувати концепцію", "dealId": "example-deal", "dueDate": "2026-11-10", "done": false, "demo": true }
+  ],
+  "history": []
+}
