@@ -155,9 +155,69 @@ export function exportCsv(data: Database, kind: 'deals' | 'contacts' | 'tasks') 
     : [['ID', 'Завдання', 'Угода ID', 'Строк', 'Пріоритет', 'Виконано', 'Дата завершення'], ...data.tasks.map(t => [t.id, t.title, t.dealId, t.dueDate, t.priority, t.done, t.completedAt])]
   return '\uFEFF' + rows.map(row => row.map(csvCell).join(',')).join('\r\n')
 }
+async function snapshotFingerprint(raw: string | null) {
+  const bytes = new TextEncoder().encode(raw === null ? 'missing' : 'value:' + raw)
+  return Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256', bytes)), n => n.toString(16).padStart(2, '0')).join('')
+}
+function openVersions(): Promise<IDBDatabase> {
+  return new Promise((resolve, reject) => {
+    const request = indexedDB.open('dealpilot-write-coordination', 1)
+    request.onupgradeneeded = () => request.result.createObjectStore('versions')
+    request.onsuccess = () => resolve(request.result)
+    request.onerror = () => reject(new Error('Браузер не дозволяє безпечне збереження. Перевірте доступ до IndexedDB.'))
+    request.onblocked = () => reject(new Error('Закрийте інші вкладки DealPilot і повторіть збереження.'))
+  })
+}
+// Called only by the explicitly confirmed recovery action, never on application startup.
+export async function resetStorage(storage: Pick<Storage, 'removeItem'>) {
+  if (!navigator.locks) throw new Error('Для безпечного очищення потрібен браузер із Web Locks.')
+  await navigator.locks.request(STORAGE_KEY, async () => {
+    const missing = await snapshotFingerprint(null)
+    const db = await openVersions()
+    try {
+      await new Promise<void>((resolve, reject) => {
+        const tx = db.transaction('versions', 'readwrite')
+        tx.objectStore('versions').put(missing, STORAGE_KEY)
+        try { storage.removeItem(STORAGE_KEY) } catch (error) { tx.abort(); reject(error) }
+        tx.oncomplete = () => resolve()
+        tx.onabort = () => reject(new Error('Не вдалося очистити сховище.'))
+      })
+    } finally { db.close() }
+  })
+}
 export class Repository {
   private previous: string | null = null
   constructor(private storage: Pick<Storage, 'getItem' | 'setItem'>) {}
+  async saveLocked(data: Database): Promise<Database> {
+    if (!navigator.locks) throw new Error('Для безпечного збереження між вкладками потрібен браузер із Web Locks і HTTPS або localhost.')
+    const expected = this.previous
+    return navigator.locks.request(STORAGE_KEY, async () => {
+      if (this.previous !== expected) throw new Error('Дані вже змінилися. Повторіть дію з актуальними записами.')
+      // A transactionally stored fingerprint also catches delayed localStorage cache propagation.
+      const before = await snapshotFingerprint(expected)
+      const after = await snapshotFingerprint(JSON.stringify(databaseSchema.parse(data)))
+      const db = await openVersions()
+      try {
+        return await new Promise<Database>((resolve, reject) => {
+          const tx = db.transaction('versions', 'readwrite')
+          const store = tx.objectStore('versions')
+          const request = store.get(STORAGE_KEY)
+          let saved: Database
+          let failure: unknown
+          request.onsuccess = () => {
+            try {
+              if (request.result !== undefined && request.result !== before) throw new Error('Дані змінилися в іншій вкладці. Оновіть сторінку перед збереженням.')
+              saved = this.save(data)
+              store.put(after, STORAGE_KEY)
+            } catch (error) { failure = error; tx.abort() }
+          }
+          tx.oncomplete = () => resolve(saved)
+          tx.onabort = () => reject(failure ?? new Error('Не вдалося підтвердити збереження. Оновіть сторінку та перевірте дані.'))
+          tx.onerror = () => { failure ??= new Error('Помилка сховища версій. Оновіть сторінку та перевірте дані.') }
+        })
+      } finally { db.close() }
+    })
+  }
   load(): Database {
     const raw = this.storage.getItem(STORAGE_KEY)
     const data = raw === null ? emptyDatabase() : parseDatabase(raw)

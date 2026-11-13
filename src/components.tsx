@@ -19,11 +19,11 @@ export function Modal({ title, children, close }: { title: string; children: Rea
 export type Editor = { kind: 'contact'; value?: Contact } | { kind: 'deal'; value?: Deal; stage?: Deal['stage'] } | { kind: 'task'; value?: Task }
 export type SavedEntity = { kind: 'contact'; value: Contact } | { kind: 'deal'; value: Deal } | { kind: 'task'; value: Task }
 
-export function EntityEditor({ editor, data, close, save, remove }: { editor: Editor; data: Database; close: () => void; save: (entity: SavedEntity) => boolean; remove: () => void }) {
+export function EntityEditor({ editor, data, close, save, remove }: { editor: Editor; data: Database; close: () => void; save: (entity: SavedEntity) => Promise<boolean>; remove: () => void }) {
   const [error, setError] = useState('')
   const titles = { contact: 'контакт', deal: 'угоду', task: 'завдання' }
   const value = editor.value
-  function submit(event: FormEvent<HTMLFormElement>) {
+  async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
     const form = new FormData(event.currentTarget)
     const str = (name: string) => String(form.get(name) ?? '').trim()
@@ -33,7 +33,7 @@ export function EntityEditor({ editor, data, close, save, remove }: { editor: Ed
       if (editor.kind === 'contact') entity = { kind: 'contact', value: contactSchema.parse({ ...common, name: str('name'), company: str('company'), email: str('email'), phone: str('phone'), notes: str('notes') }) }
       else if (editor.kind === 'deal') entity = { kind: 'deal', value: dealSchema.parse({ ...common, title: str('title'), contactId: str('contactId') || null, amount: Number(str('amount')), currency: str('currency'), stage: str('stage'), expectedDate: str('expectedDate'), probability: Number(str('probability')), owner: str('owner'), notes: str('notes'), createdAt: editor.value?.createdAt ?? null, updatedAt: editor.value?.updatedAt ?? null, closedAt: editor.value?.closedAt ?? null, status: statusFor(str('stage') as Deal['stage']), lostReason: str('lostReason') }) }
       else entity = { kind: 'task', value: taskSchema.parse({ ...common, title: str('title'), dealId: str('dealId') || null, dueDate: str('dueDate'), done: form.get('done') === 'on', priority: str('priority'), createdAt: editor.value ? editor.value.createdAt : new Date().toISOString(), completedAt: form.get('done') === 'on' ? editor.value?.done ? editor.value.completedAt : new Date().toISOString() : null }) }
-      if (save(entity)) close()
+      if (await save(entity)) close()
       else setError('Зміни не збережено. Перевірте повідомлення про сховище на сторінці. Поля форми збережено.')
     } catch (error) {
       if (error && typeof error === 'object' && 'issues' in error) setError((error as { issues: { message: string }[] }).issues[0].message)

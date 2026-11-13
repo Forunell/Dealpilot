@@ -172,7 +172,7 @@ main{padding:32px 35px 0;max-width:1800px;margin:auto}
 .deal-card .stage-select{margin-top:5px}
 .column-empty{min-height:135px;border:1px dashed var(--line);border-radius:7px;display:flex;align-items:center;justify-content:center;flex-direction:column;font-size:10px;text-align:center;line-height:1.8;padding:15px}
 .column-empty button{margin-top:12px}
-.table-wrap{overflow-x:auto}
+.table-wrap{overflow-x:auto;position:relative}
 table{width:100%;border-collapse:collapse;text-align:left;font-size:11px;white-space:normal;min-width:650px}
 th{font-weight:500;font-size:10px;letter-spacing:.2px;padding:13px 22px;border-bottom:1px solid var(--line)}
 td{padding:16px 22px;border-bottom:1px solid var(--line);}

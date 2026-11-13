@@ -11,3 +11,14 @@ playwright-report/
 *.tsbuildinfo
 *.log
 node-shasums.txt
+*.sqlite
+*.sqlite3
+*.sqlite3-*
+*.db
+*.db-*
+*.pem
+*.key
+
+# Raw validation output remains local; publish docs/VALIDATION.md.
+/docs/audit-evidence/
+*.log
